@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>*,*::before,*::after{box-sizing:border-box}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Predator–Prey Field</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: the field is the hero on the left; a field-notebook instrument panel sits beside it and stacks below on phones */
+:root{
+  --paper:#eaeee8; --panel:#f7f9f5; --ink:#1b221e; --muted:#5a675f; --line:#cfd8cf; --accent:#2e6a4d;
+  --prey:#2f7ee8; --pred:#d93a3f;
+  --font-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body:"Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --font-mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --paper:#111613; --panel:#19201c; --ink:#e3eae4; --muted:#91a097; --line:#2b3530; --accent:#80c6a2;
+  --prey:#5ea4ff; --pred:#ff6a6e; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --paper:#111613; --panel:#19201c; --ink:#e3eae4; --muted:#91a097; --line:#2b3530; --accent:#80c6a2;
+  --prey:#5ea4ff; --pred:#ff6a6e; color-scheme:dark }
+
+html,body{height:auto}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.5;padding:20px 20px 28px}
+.wrap{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 24px}
+h1{font-family:var(--font-display);font-weight:800;font-size:clamp(28px,4vw,44px);line-height:1;letter-spacing:-.02em;margin:0;text-wrap:balance}
+h1 .r{color:var(--pred)} h1 .b{color:var(--prey)}
+.sub{margin:6px 0 0;color:var(--muted);max-width:62ch}
+.chip{font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:5px 10px;border-radius:99px;border:1px solid var(--line);background:var(--panel);display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.chip i{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.chip.paused i{background:var(--muted)}
+.chip.warn i{background:var(--pred)}
+
+.main{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px;align-items:start}
+@media (max-width:980px){.main{grid-template-columns:minmax(0,1fr)}}
+
+.field{display:flex;flex-direction:column;gap:10px;min-width:0}
+.board-box{position:relative;width:100%;max-width:min(760px,max(320px,calc(100vh - 140px)));min-width:0;margin-inline:auto;border-radius:50%;box-shadow:0 0 0 6px var(--panel),0 0 0 7px var(--line),0 18px 40px -22px rgba(0,0,0,.55)}
+#board{display:block;width:100%;aspect-ratio:1/1;border-radius:50%;max-width:100%;cursor:crosshair;touch-action:manipulation}
+.note{position:absolute;left:12%;top:14%;right:12%;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;background:rgba(20,18,14,.86);color:#f1ece2;font-size:14px}
+.note button{background:#f1ece2;color:#1b1914;border:0}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.sw{width:11px;height:11px;border-radius:50%;display:inline-block}
+.sq{width:10px;height:10px;display:inline-block;border-radius:2px}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:18px;min-width:0}
+.counts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.count{display:flex;flex-direction:column;gap:2px;min-width:0}
+.count b{font-family:var(--font-display);font-weight:800;font-size:28px;line-height:1.05;font-variant-numeric:tabular-nums}
+.count small,.label{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.count.prey b{color:var(--prey)} .count.pred b{color:var(--pred)}
+
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button,.seg label{font:inherit;font-size:14px;font-weight:700;border-radius:7px;border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:7px 12px;cursor:pointer}
+button:hover,.seg label:hover{border-color:var(--muted)}
+button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label{border:0;border-radius:0;background:transparent;padding:6px 11px;font-weight:600}
+.seg input:checked+label{background:var(--ink);color:var(--paper)}
+.seg input:focus-visible+label{outline:2px solid var(--accent);outline-offset:-2px}
+
+.sliders{display:flex;flex-direction:column;gap:10px}
+.sl{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center}
+.sl span{font-size:14px}
+.sl output{font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--muted)}
+.sl input{grid-column:1 / -1;width:100%;accent-color:var(--accent)}
+
+.chart{display:flex;flex-direction:column;gap:6px}
+.chart canvas{width:100%;display:block;max-width:100%}
+#series{aspect-ratio:16/8;cursor:grab;touch-action:pan-y}
+#series.dragging{cursor:grabbing}
+.chart-head{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:26px}
+.view{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+button.mini{font-size:12px;padding:3px 8px}
+.scrub{width:100%;accent-color:var(--muted);margin:0} #phase{aspect-ratio:1/0.72}
+hr{border:0;border-top:1px solid var(--line);margin:0}
+.eq{font-family:var(--font-mono);font-size:13.5px;line-height:1.7;background:var(--paper);border-radius:8px;padding:10px 12px;overflow-x:auto;white-space:nowrap}
+.eq em{font-style:normal;color:var(--muted)}
+.terms{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13.5px}
+.terms dt{font-family:var(--font-mono);font-weight:600}
+.terms dd{margin:0;color:var(--muted)}
+.hint{font-size:13px;color:var(--muted);margin:0}
+kbd{font-family:var(--font-mono);font-size:12px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--paper)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1><span class="r">Predators</span>, <span class="b">prey</span> &amp; grass</h1>
+      <p class="sub">Red hunts blue, blue grazes green. Five catches split a predator, every mouthful of grass splits a prey, and hunger does the rest. Watch the two populations chase each other in cycles.</p>
+    </div>
+    <span class="chip" id="chip"><i></i><span id="chipText">Running</span></span>
+  </header>
+
+  <div class="main">
+    <section class="field">
+      <div class="board-box">
+        <canvas id="board" aria-label="Simulation field. Click to drop an animal."></canvas>
+        <div class="note" id="note" hidden><span id="noteText"></span><button id="noteReset" type="button">Start over</button></div>
+      </div>
+      <div class="legend">
+        <span><i class="sw" style="background:#ff4d52"></i>Predator (ring = time left before starving, dots = prey eaten toward next split)</span>
+        <span><i class="sw" style="background:#4b95ff"></i>Prey</span>
+        <span><i class="sq" style="background:#5fbf4a"></i>Fresh grass</span>
+        <span><i class="sq" style="background:#cdb68a"></i>Grazed, regrowing</span>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="counts">
+        <div class="count prey"><b id="nPrey">0</b><small>Prey</small></div>
+        <div class="count pred"><b id="nPred">0</b><small>Predators</small></div>
+        <div class="count"><b id="nGrass">0%</b><small>Fresh grass</small></div>
+        <div class="count"><b id="nTime">0s</b><small>Time</small></div>
+      </div>
+
+      <div class="row">
+        <button class="primary" id="play" type="button">Pause</button>
+        <button id="reset" type="button">Reset</button>
+        <div class="seg" role="radiogroup" aria-label="Speed">
+          <input type="radio" name="spd" id="s1" value="1" checked><label for="s1">1×</label>
+          <input type="radio" name="spd" id="s2" value="2"><label for="s2">2×</label>
+          <input type="radio" name="spd" id="s4" value="4"><label for="s4">4×</label>
+        </div>
+      </div>
+
+      <div class="chart">
+        <div class="chart-head"><span class="label">Population over time</span><span class="view"><span id="viewTxt">Live · last 60 s</span><button type="button" id="liveBtn" class="mini" hidden>Back to live</button></span></div>
+        <canvas id="series" tabindex="0" aria-label="Population over time. Drag, swipe sideways, or use the arrow keys to scroll."></canvas>
+        <input type="range" id="scrub" class="scrub" min="60" max="60" step="0.25" value="60" aria-label="Scroll the population graph">
+      </div>
+      <div class="chart">
+        <span class="label">Phase portrait · prey vs predators</span>
+        <canvas id="phase"></canvas>
+      </div>
+
+      <hr>
+
+      <div class="sliders">
+        <label class="sl"><span>Starvation time</span><output id="o_starve">6.0 s</output><input type="range" id="starve" min="2" max="12" step="0.5" value="6"></label>
+        <label class="sl"><span>Predator speed edge</span><output id="o_adv">+25%</output><input type="range" id="adv" min="0" max="50" step="1" value="25"></label>
+        <label class="sl"><span>Prey eaten to split</span><output id="o_meals">5 prey</output><input type="range" id="meals" min="1" max="10" step="1" value="5"></label>
+        <label class="sl"><span>Prey panic radius</span><output id="o_panic">70 px</output><input type="range" id="panic" min="20" max="150" step="5" value="70"></label>
+        <label class="sl"><span>Predator personal space</span><output id="o_space">90 px</output><input type="range" id="space" min="0" max="180" step="5" value="90"></label>
+        <label class="sl"><span>Grass regrowth</span><output id="o_regrow">5.0 s</output><input type="range" id="regrow" min="1" max="15" step="0.5" value="5"></label>
+        <label class="sl"><span>Starting prey</span><output id="o_prey0">40</output><input type="range" id="prey0" min="5" max="150" step="1" value="40"></label>
+        <label class="sl"><span>Starting predators</span><output id="o_pred0">6</output><input type="range" id="pred0" min="1" max="30" step="1" value="6"></label>
+      </div>
+
+      <div class="row">
+        <span class="label">Click field adds</span>
+        <div class="seg" role="radiogroup" aria-label="Click adds">
+          <input type="radio" name="add" id="aPrey" value="prey" checked><label for="aPrey">Prey</label>
+          <input type="radio" name="add" id="aPred" value="pred"><label for="aPred">Predator</label>
+        </div>
+      </div>
+      <p class="hint">Starting counts apply on reset. <kbd>Space</kbd> pauses, <kbd>R</kbd> resets.</p>
+
+      <hr>
+
+      <div class="chart">
+        <span class="label">The model behind it (Lotka–Volterra)</span>
+        <div class="eq">dx/dt = αx − βxy &nbsp;<em>prey</em><br>dy/dt = δxy − γy &nbsp;<em>predators</em></div>
+        <dl class="terms">
+          <dt>α</dt><dd>prey split after eating grass</dd>
+          <dt>β</dt><dd>predators catch prey on contact</dd>
+          <dt>δ</dt><dd id="dDelta">every 5 catches split the predator in two</dd>
+          <dt>γ</dt><dd>predators starve if they miss the deadline</dd>
+        </dl>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+const W = 860, H = 860, TILE = 32, GH = 6;
+const CX = W/2, CY = H/2, RAD = 420;   // circular arena
+const inArena = (x,y,m=0) => Math.hypot(x-CX,y-CY) <= RAD-m;
+function randInArena(m){ const a=rand(0,Math.PI*2), r=(RAD-m)*Math.sqrt(Math.random()); return [CX+Math.cos(a)*r, CY+Math.sin(a)*r]; }
+const PREY_R = 4.5, PRED_R = 6.5, PREY_SPEED = 58, FLEE_R = 115, SENSE = 280;
+const PREY_CAP = 320, PRED_CAP = 160, DT = 1/60;
+const SOIL = '#221f19', GREEN = [95,191,74], BEIGE = [205,182,138];
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const P = { starve:6, adv:.25, regrow:5, prey0:40, pred0:6, space:90, meals:5, panic:70 };
+let prey=[], preds=[], tiles=[], grid, cols, rows, fx=[], series=[], simT=0, sampleT=0;
+let running=true, speed=1, acc=0, last=performance.now(), frame=0, noted=false, addMode='prey';
+
+const $ = id => document.getElementById(id);
+const rand = (a,b) => a + Math.random()*(b-a);
+const board = $('board'), bctx = board.getContext('2d');
+
+function newPrey(x,y){ return {x,y,vx:0,vy:0,wa:rand(0,Math.PI*2),tgt:-1,rt:rand(0,.3)}; }
+function newPred(x,y){ return {x,y,vx:0,vy:0,wa:rand(0,Math.PI*2),hunger:P.starve,meals:0}; }
+
+function init(){
+  cols = Math.floor(W/TILE); rows = Math.floor(H/TILE);
+  grid = new Int32Array(cols*rows).fill(-1); tiles = [];
+  for (let y=0;y<rows;y++) for (let x=0;x<cols;x++){
+    const tx=(x+.5)*TILE+rand(-7,7), ty=(y+.5)*TILE+rand(-7,7);
+    if (Math.random() < .6 && inArena(tx,ty,GH*2)){
+      tiles.push({x:tx, y:ty, t:1e6});
+      grid[y*cols+x] = tiles.length-1;
+    }
+  }
+  prey = Array.from({length:P.prey0}, () => newPrey(...randInArena(20)));
+  preds = [];
+  for (let i=0;i<P.pred0;i++){
+    let x,y,tries=0;
+    do { [x,y]=randInArena(30); tries++; } while (tries<30 && prey.some(p=>Math.hypot(p.x-x,p.y-y)<60));
+    preds.push(newPred(x,y));
+  }
+  fx=[]; series=[]; simT=0; sampleT=0; noted=false; following=true; $('note').hidden=true;
+  sample(); updateStats(); drawCharts();
+}
+
+const ready = t => t.t >= P.regrow;
+
+function findGrass(p){
+  const cx = Math.floor(p.x/TILE), cy = Math.floor(p.y/TILE), R = 5;
+  let best=-1, bd=Infinity;
+  for (let y=Math.max(0,cy-R); y<=Math.min(rows-1,cy+R); y++)
+    for (let x=Math.max(0,cx-R); x<=Math.min(cols-1,cx+R); x++){
+      const i = grid[y*cols+x]; if (i<0) continue;
+      const t = tiles[i]; if (!ready(t)) continue;
+      const d = (t.x-p.x)**2 + (t.y-p.y)**2;
+      if (d<bd){ bd=d; best=i; }
+    }
+  return best;
+}
+
+function steer(a, dx, dy, spd, k){
+  // soft circular wall: push inward near the rim
+  const m = 40, ox = a.x-CX, oy = a.y-CY, r = Math.hypot(ox,oy) || 1;
+  if (r > RAD-m){ const w = (r-(RAD-m))/m*1.8; dx -= ox/r*w; dy -= oy/r*w; }
+  const n = Math.hypot(dx,dy) || 1;
+  const f = Math.min(1, DT*k);
+  a.vx += (dx/n*spd - a.vx)*f; a.vy += (dy/n*spd - a.vy)*f;
+  a.x += a.vx*DT; a.y += a.vy*DT;
+  const ex = a.x-CX, ey = a.y-CY, er = Math.hypot(ex,ey), lim = RAD-4;
+  if (er > lim){
+    a.x = CX+ex/er*lim; a.y = CY+ey/er*lim;
+    const vn = (a.vx*ex+a.vy*ey)/er;               // drop outward velocity, keep sliding along the rim
+    if (vn > 0){ a.vx -= vn*ex/er; a.vy -= vn*ey/er; }
+  }
+}
+
+function burst(x,y,color,grow){ if (!reduced) fx.push({x,y,color,grow,t:0}); }
+
+function step(){
+  simT += DT;
+  for (const t of tiles) if (t.t < 1e5) t.t += DT;
+
+  // prey
+  const babies = [];
+  for (const p of prey){
+    // Three zones by distance to the nearest predator:
+    //  panic (< P.panic): pure escape, ignores grass entirely and won't stop to eat
+    //  alert (< alert radius): escape first, but may drift toward grass while doing it
+    //  calm: go graze
+    const alertR = Math.max(FLEE_R, P.panic*1.6);
+    let fx_=0, fy_=0, dmin=Infinity;
+    for (const q of preds){
+      const dx=p.x-q.x, dy=p.y-q.y, d2=dx*dx+dy*dy;
+      if (d2 < alertR*alertR){
+        const d=Math.sqrt(d2)||1, w=1-d/alertR;
+        fx_+=dx/d*w; fy_+=dy/d*w; if (d<dmin) dmin=d;
+      }
+    }
+    p.panic = dmin < P.panic;
+    p.wa += (Math.random()-.5)*(dmin<Infinity?9:3)*DT*6;
+    const wx=Math.cos(p.wa), wy=Math.sin(p.wa);
+    const fn=Math.hypot(fx_,fy_)||1, ux=fx_/fn, uy=fy_/fn;
+    if (p.panic){
+      steer(p, ux + wx*.18, uy + wy*.18, PREY_SPEED, 10);
+    } else {
+      p.rt -= DT;
+      if (p.rt<=0 || p.tgt<0 || !ready(tiles[p.tgt])){ p.tgt=findGrass(p); p.rt=.3; }
+      let gx=0, gy=0;
+      if (p.tgt>=0){ const t=tiles[p.tgt], dx=t.x-p.x, dy=t.y-p.y, n=Math.hypot(dx,dy)||1; gx=dx/n; gy=dy/n; }
+      if (dmin<Infinity){
+        steer(p, ux*1.4 + gx*.6 + wx*.35, uy*1.4 + gy*.6 + wy*.35, PREY_SPEED, 7);
+      } else if (p.tgt>=0){
+        steer(p, gx + wx*.25, gy + wy*.25, PREY_SPEED*.7, 5);
+      } else steer(p, wx, wy, PREY_SPEED*.45, 3);
+    }
+    // graze (a panicking prey is too busy running to eat)
+    if (!p.panic){
+    const cx=Math.floor(p.x/TILE), cy=Math.floor(p.y/TILE);
+    outer: for (let y=cy-1;y<=cy+1;y++) for (let x=cx-1;x<=cx+1;x++){
+      if (x<0||y<0||x>=cols||y>=rows) continue;
+      const i=grid[y*cols+x]; if (i<0) continue;
+      const t=tiles[i];
+      if (ready(t) && Math.abs(p.x-t.x)<GH+PREY_R && Math.abs(p.y-t.y)<GH+PREY_R){
+        t.t=0;
+        if (prey.length+babies.length < PREY_CAP){
+          const b=newPrey(p.x+rand(-3,3), p.y+rand(-3,3)); b.wa=p.wa+Math.PI*rand(.5,1.5);
+          babies.push(b); burst(p.x,p.y,'rgba(120,175,255,',1);
+        }
+        break outer;
+      }
+    }
+    }
+  }
+
+  // predators
+  const pups = [];
+  const spd = PREY_SPEED*(1+P.adv);
+  for (const q of preds){
+    q.hunger -= DT;
+    if (q.hunger<=0){ q.dead=true; burst(q.x,q.y,'rgba(200,190,170,',-1); continue; }
+    let best=null, bd=SENSE*SENSE;
+    for (const p of prey){ if (p.dead) continue; const d=(p.x-q.x)**2+(p.y-q.y)**2; if (d<bd){bd=d;best=p;} }
+    q.wa += (Math.random()-.5)*18*DT;
+    // loners: push away from other predators inside their personal space
+    let sx=0, sy=0;
+    if (P.space>0) for (const o of preds){
+      if (o===q || o.dead) continue;
+      const dx=q.x-o.x, dy=q.y-o.y, d2=dx*dx+dy*dy;
+      if (d2 < P.space*P.space){ const d=Math.sqrt(d2)||.01, w=(1-d/P.space)**1.5; sx+=dx/d*w; sy+=dy/d*w; }
+    }
+    if (best){
+      const dx=best.x-q.x, dy=best.y-q.y, n=Math.hypot(dx,dy)||1;
+      // hunger overrides shyness: a starving predator tolerates company
+      const shy = 2.2*Math.min(1, q.hunger/P.starve+.25);
+      steer(q, dx/n + sx*shy, dy/n + sy*shy, spd, 6);
+      if (Math.hypot(best.x-q.x,best.y-q.y) < PRED_R+PREY_R){
+        best.dead=true; q.hunger=P.starve; q.meals=(q.meals||0)+1;
+        burst(best.x,best.y,'rgba(255,110,110,',1.4);
+        if (q.meals>=P.meals && preds.length+pups.length < PRED_CAP){
+          q.meals=0;
+          const a=rand(0,Math.PI*2);
+          const c=newPred(q.x+Math.cos(a)*8, q.y+Math.sin(a)*8); c.wa=a; pups.push(c);
+        }
+      }
+    } else {
+      if (sx||sy) q.wa = Math.atan2(Math.sin(q.wa)+sy*3, Math.cos(q.wa)+sx*3);
+      steer(q, Math.cos(q.wa)+sx*3, Math.sin(q.wa)+sy*3, spd*.55, 3);
+    }
+  }
+
+  prey = prey.filter(p=>!p.dead).concat(babies);
+  preds = preds.filter(q=>!q.dead).concat(pups);
+
+  for (const f of fx) f.t += DT;
+  fx = fx.filter(f=>f.t<.6);
+
+  if (simT - sampleT >= .25){ sampleT = simT; sample(); }
+}
+
+function sample(){
+  series.push([simT, prey.length, preds.length]);
+  if (series.length > 4800) series.shift();   // keeps the last 20 minutes
+  if (!noted && (preds.length===0 || prey.length===0)){
+    noted=true;
+    $('noteText').textContent = preds.length===0
+      ? `Predators died out at ${Math.round(simT)} s. Prey now grow unchecked until the grass limits them.`
+      : `Prey were wiped out at ${Math.round(simT)} s. The predators will starve next.`;
+    $('note').hidden=false;
+  }
+}
+
+/* ---------- drawing ---------- */
+function fitCanvas(c){
+  const r=c.getBoundingClientRect(), d=Math.min(devicePixelRatio||1,2);
+  const w=Math.round(r.width*d), h=Math.round(r.height*d);
+  if (c.width!==w||c.height!==h){ c.width=w; c.height=h; }
+  return d;
+}
+
+function drawBoard(){
+  fitCanvas(board);
+  const s=board.width/W;
+  bctx.setTransform(s,0,0,s,0,0);
+  bctx.clearRect(0,0,W,H);
+  bctx.fillStyle=SOIL; bctx.beginPath(); bctx.arc(CX,CY,RAD,0,Math.PI*2); bctx.fill();
+  bctx.save(); bctx.beginPath(); bctx.arc(CX,CY,RAD,0,Math.PI*2); bctx.clip();
+  for (const t of tiles){
+    let k=Math.min(1,t.t/P.regrow); k=k*k*(3-2*k);
+    const c=BEIGE.map((b,i)=>Math.round(b+(GREEN[i]-b)*k));
+    bctx.fillStyle=`rgb(${c})`;
+    bctx.fillRect(t.x-GH,t.y-GH,GH*2,GH*2);
+  }
+  for (const f of fx){
+    const a=1-f.t/.6, r= f.grow>0 ? 5+f.t*30*f.grow : 9-f.t*8;
+    bctx.strokeStyle=f.color+a.toFixed(2)+')'; bctx.lineWidth=1.5;
+    bctx.beginPath(); bctx.arc(f.x,f.y,Math.max(1,r),0,Math.PI*2); bctx.stroke();
+  }
+  bctx.fillStyle='#4b95ff';
+  bctx.beginPath();
+  for (const p of prey){ bctx.moveTo(p.x+PREY_R,p.y); bctx.arc(p.x,p.y,PREY_R,0,Math.PI*2); }
+  bctx.fill();
+  for (const q of preds){
+    const f=Math.max(0,q.hunger/P.starve);
+    bctx.globalAlpha = .45 + .55*Math.min(1,f*2.5);
+    bctx.fillStyle='#ff4d52';
+    bctx.beginPath(); bctx.arc(q.x,q.y,PRED_R,0,Math.PI*2); bctx.fill();
+    bctx.globalAlpha=1;
+    bctx.strokeStyle= f<.3 ? 'rgba(255,210,120,.95)' : 'rgba(255,150,150,.8)';
+    bctx.lineWidth=1.6;
+    bctx.beginPath(); bctx.arc(q.x,q.y,PRED_R+3.2,-Math.PI/2,-Math.PI/2+Math.PI*2*f); bctx.stroke();
+    // meal pips: one light dot per prey eaten toward the next split
+    const m=Math.min(q.meals||0,P.meals-1);
+    if (m>0 && P.meals>1){
+      bctx.fillStyle='rgba(255,240,230,.95)';
+      for (let i=0;i<m;i++){
+        const a=-Math.PI/2+Math.PI*2*i/(P.meals-1);
+        const r = P.meals-1===1 ? 0 : 3;
+        bctx.beginPath(); bctx.arc(q.x+Math.cos(a)*r,q.y+Math.sin(a)*r,1.2,0,Math.PI*2); bctx.fill();
+      }
+    }
+  }
+  bctx.restore();
+  bctx.strokeStyle='rgba(205,182,138,.35)'; bctx.lineWidth=2;
+  bctx.beginPath(); bctx.arc(CX,CY,RAD-1,0,Math.PI*2); bctx.stroke();
+}
+
+function tokens(){
+  const cs=getComputedStyle(document.documentElement);
+  const g=n=>cs.getPropertyValue(n).trim();
+  return {ink:g('--ink'),muted:g('--muted'),line:g('--line'),prey:g('--prey'),pred:g('--pred'),mono:g('--font-mono')};
+}
+function niceMax(v){ if (v<=10) return 10; const p=10**Math.floor(Math.log10(v)); const m=v/p; return (m<=2?2:m<=5?5:10)*p; }
+
+function drawSeries(T){
+  const c=$('series'), d=fitCanvas(c), x=c.getContext('2d');
+  const w=c.width/d, h=c.height/d; x.setTransform(d,0,0,d,0,0); x.clearRect(0,0,w,h);
+  const L=34,R=8,Tp=6,B=20, pw=w-L-R, ph=h-Tp-B;
+  const win=WIN, t1=viewRange().end, t0=t1-win;
+  const pts=series.filter(s=>s[0]>=t0-.5 && s[0]<=t1+.5);
+  chartGeom={L,pw};
+  const ym=niceMax(Math.max(10,...pts.map(s=>Math.max(s[1],s[2]))));
+  x.font=`10.5px ${T.mono}`; x.textBaseline='middle';
+  for (let i=0;i<=4;i++){
+    const v=ym*i/4, y=Tp+ph-ph*i/4;
+    x.strokeStyle=T.line; x.lineWidth=1; x.beginPath(); x.moveTo(L,y+.5); x.lineTo(w-R,y+.5); x.stroke();
+    x.fillStyle=T.muted; x.textAlign='right'; x.fillText(Math.round(v),L-6,y);
+  }
+  x.textAlign='center'; x.textBaseline='top';
+  for (let t=Math.ceil(t0/15)*15; t<=t1; t+=15){ if (t<0) continue; const xx=L+pw*(t-t0)/win; x.fillText(t+'s',xx,Tp+ph+5); }
+  x.save(); x.beginPath(); x.rect(L,0,pw,h); x.clip();
+  const line=(idx,col)=>{
+    if (pts.length<2) return;
+    x.strokeStyle=col; x.lineWidth=2; x.lineJoin='round'; x.beginPath();
+    pts.forEach((s,i)=>{ const xx=L+pw*(s[0]-t0)/win, yy=Tp+ph-ph*s[idx]/ym; i?x.lineTo(xx,yy):x.moveTo(xx,yy); });
+    x.stroke();
+    if (!following) return;
+    const s=pts[pts.length-1]; x.fillStyle=col; x.beginPath(); x.arc(L+pw*(s[0]-t0)/win,Tp+ph-ph*s[idx]/ym,3.5,0,Math.PI*2); x.fill();
+  };
+  line(1,T.prey); line(2,T.pred);
+  x.restore();
+  syncScrub();
+}
+
+/* ---------- scrolling the population graph ---------- */
+const WIN = 60;
+let following = true, viewEnd = 0, chartGeom = {L:34,pw:300}, scrubbing = false;
+function viewRange(){
+  const max = Math.max(WIN, simT);
+  const min = series.length ? Math.min(max, Math.max(WIN, series[0][0]+WIN)) : WIN;
+  const end = following ? max : Math.min(max, Math.max(min, viewEnd));
+  return {min, max, end};
+}
+function panTo(end){
+  const r = viewRange();
+  viewEnd = Math.min(r.max, Math.max(r.min, end));
+  following = viewEnd >= r.max - .3;
+  drawCharts();
+}
+function syncScrub(){
+  const r = viewRange(), sc = $('scrub');
+  sc.disabled = r.max - r.min < .5;
+  if (!scrubbing){ sc.min = r.min; sc.max = r.max; sc.value = r.end; }
+  $('liveBtn').hidden = following;
+  const a = Math.max(0, r.end-WIN);
+  $('viewTxt').textContent = following ? 'Live · last 60 s' : `${Math.round(a)}–${Math.round(r.end)} s`;
+}
+(() => {
+  const c = $('series');
+  let drag = null;
+  c.addEventListener('pointerdown', e => {
+    drag = {x:e.clientX, end:viewRange().end};
+    c.setPointerCapture(e.pointerId); c.classList.add('dragging');
+  });
+  c.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x;
+    panTo(drag.end - dx/chartGeom.pw*WIN);
+  });
+  const end = () => { drag = null; c.classList.remove('dragging'); };
+  c.addEventListener('pointerup', end); c.addEventListener('pointercancel', end);
+  c.addEventListener('wheel', e => {
+    const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : (e.shiftKey ? e.deltaY : 0);
+    if (!d) return;
+    e.preventDefault();
+    panTo(viewRange().end + d/chartGeom.pw*WIN);
+  }, {passive:false});
+  c.addEventListener('keydown', e => {
+    if (e.key==='ArrowLeft'){ e.preventDefault(); panTo(viewRange().end-5); }
+    else if (e.key==='ArrowRight'){ e.preventDefault(); panTo(viewRange().end+5); }
+    else if (e.key==='End'){ e.preventDefault(); panTo(Infinity); }
+  });
+  const sc = $('scrub');
+  sc.addEventListener('pointerdown', () => scrubbing = true);
+  addEventListener('pointerup', () => scrubbing = false);
+  sc.addEventListener('input', () => panTo(+sc.value));
+  $('liveBtn').onclick = () => panTo(Infinity);
+})();
+
+function drawPhase(T){
+  const c=$('phase'), d=fitCanvas(c), x=c.getContext('2d');
+  const w=c.width/d, h=c.height/d; x.setTransform(d,0,0,d,0,0); x.clearRect(0,0,w,h);
+  const L=34,R=10,Tp=8,B=22, pw=w-L-R, ph=h-Tp-B;
+  const xm=niceMax(Math.max(10,...series.map(s=>s[1]))), ym=niceMax(Math.max(5,...series.map(s=>s[2])));
+  x.font=`10.5px ${T.mono}`;
+  x.strokeStyle=T.line; x.lineWidth=1;
+  x.beginPath(); x.moveTo(L+.5,Tp); x.lineTo(L+.5,Tp+ph+.5); x.lineTo(w-R,Tp+ph+.5); x.stroke();
+  x.fillStyle=T.muted;
+  x.textAlign='right'; x.textBaseline='middle'; x.fillText(ym,L-6,Tp+4); x.fillText(0,L-6,Tp+ph);
+  x.textAlign='center'; x.textBaseline='top'; x.fillText(xm,w-R-8,Tp+ph+5);
+  x.fillText('prey →',L+pw/2,Tp+ph+5);
+  x.save(); x.translate(10,Tp+ph/2); x.rotate(-Math.PI/2); x.textBaseline='middle'; x.fillText('predators →',0,0); x.restore();
+  const n=series.length; if (n<2) return;
+  const px=s=>L+pw*s[1]/xm, py=s=>Tp+ph-ph*s[2]/ym;
+  x.lineWidth=1.6; x.lineJoin='round';
+  const seg=40;
+  for (let a=0;a<n-1;a+=seg){
+    const b=Math.min(n-1,a+seg);
+    x.globalAlpha=.15+.85*(b/(n-1))**2;
+    x.strokeStyle=T.ink; x.beginPath(); x.moveTo(px(series[a]),py(series[a]));
+    for (let i=a+1;i<=b;i++) x.lineTo(px(series[i]),py(series[i]));
+    x.stroke();
+  }
+  x.globalAlpha=1;
+  const s=series[n-1]; x.fillStyle=T.pred; x.beginPath(); x.arc(px(s),py(s),4,0,Math.PI*2); x.fill();
+}
+
+function drawCharts(){ const T=tokens(); drawSeries(T); drawPhase(T); }
+
+function updateStats(){
+  $('nPrey').textContent=prey.length;
+  $('nPred').textContent=preds.length;
+  const g=tiles.length? tiles.filter(ready).length/tiles.length : 0;
+  $('nGrass').textContent=Math.round(g*100)+'%';
+  $('nTime').textContent=Math.floor(simT)+'s';
+  const chip=$('chip');
+  chip.className='chip'+(!running?' paused':(preds.length===0||prey.length===0)?' warn':'');
+  $('chipText').textContent=!running?'Paused':preds.length===0?'Predators extinct':prey.length===0?'Prey extinct':'Running';
+}
+
+function loop(now){
+  const el=Math.min(.1,(now-last)/1000); last=now;
+  if (running){ acc+=el*speed; let n=0; while(acc>=DT && n<12){ step(); acc-=DT; n++; } if (n===12) acc=0; }
+  drawBoard();
+  if (++frame%4===0){ updateStats(); drawCharts(); }
+  requestAnimationFrame(loop);
+}
+
+/* ---------- controls ---------- */
+function setRunning(v){ running=v; $('play').textContent=v?'Pause':'Play'; updateStats(); }
+$('play').onclick=()=>setRunning(!running);
+$('reset').onclick=()=>{ init(); setRunning(true); };
+$('noteReset').onclick=()=>{ init(); setRunning(true); };
+document.querySelectorAll('input[name=spd]').forEach(r=>r.onchange=()=>speed=+r.value);
+document.querySelectorAll('input[name=add]').forEach(r=>r.onchange=()=>addMode=r.value);
+
+const sliders={
+  starve:[v=>P.starve=v, v=>v.toFixed(1)+' s'],
+  adv:[v=>P.adv=v/100, v=>'+'+v+'%'],
+  space:[v=>P.space=v, v=>v===0?'off':v+' px'],
+  panic:[v=>P.panic=v, v=>v+' px'],
+  meals:[v=>{P.meals=v; $('dDelta').textContent = v===1?'each catch splits the predator in two':`every ${v} catches split the predator in two`;}, v=>v+(v===1?' prey':' prey')],
+  regrow:[v=>P.regrow=v, v=>v.toFixed(1)+' s'],
+  prey0:[v=>P.prey0=v, v=>v],
+  pred0:[v=>P.pred0=v, v=>v],
+};
+for (const [id,[set,fmt]] of Object.entries(sliders)){
+  const el=$(id), o=$('o_'+id);
+  const apply=()=>{ const v=+el.value; set(v); o.textContent=fmt(v); };
+  el.addEventListener('input',apply); apply();
+}
+
+board.addEventListener('click',e=>{
+  const r=board.getBoundingClientRect();
+  const x=(e.clientX-r.left)/r.width*W, y=(e.clientY-r.top)/r.height*H;
+  if (!inArena(x,y,6)) return;
+  if (addMode==='prey'){ if (prey.length<PREY_CAP) prey.push(newPrey(x,y)); burst(x,y,'rgba(120,175,255,',1); }
+  else { if (preds.length<PRED_CAP) preds.push(newPred(x,y)); burst(x,y,'rgba(255,110,110,',1); }
+  if (prey.length && preds.length) { noted=false; $('note').hidden=true; }
+  updateStats();
+});
+addEventListener('keydown',e=>{
+  if (e.target.matches('input,textarea')) return;
+  if (e.code==='Space'){ e.preventDefault(); setRunning(!running); }
+  else if (e.key==='r'||e.key==='R'){ init(); setRunning(true); }
+});
+
+init();
+requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>
